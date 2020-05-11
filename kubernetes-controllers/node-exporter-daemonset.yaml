@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prometheus-node-exporter
+#  namespace: Service
+  labels: {k8s-app: prometheus,component: node-exporter}
+spec:
+  selector:
+    matchLabels: {k8s-app: prometheus,component: node-exporter}
+  template:
+    metadata:
+      name: prometheus-node-exporter
+      labels: {k8s-app: prometheus,component: node-exporter}
+    spec:
+      tolerations:
+      # this toleration is to have the daemonset runnable on master nodes
+      # remove it if your masters can't run pods
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: prometheus-node-exporter
+        image: prom/node-exporter:master
