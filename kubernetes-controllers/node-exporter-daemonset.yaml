@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prometheus-node-exporter
+#  namespace: Service
+  labels: {k8s-app: prometheus,component: node-exporter}
+spec:
+  selector:
+    matchLabels: {k8s-app: prometheus,component: node-exporter}
+  template:
+    metadata:
+      name: prometheus-node-exporter
+      labels: {k8s-app: prometheus,component: node-exporter}
+    spec:
+      hostNetwork: true
+      hostPID: true
+#      nodeSelector:
+#        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      tolerations:
+      - operator: "Exists"
+      # this toleration is to have the daemonset runnable on master nodes
+      # remove it if your masters can't run pods
+#      - key: node-role.kubernetes.io/master
+#        effect: NoSchedule
+      containers:
+      - name: prometheus-node-exporter
+        image: prom/node-exporter:master
+        args:
+        - --web.listen-address=127.0.0.1:9100
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
+        - --no-collector.wifi
+        - --no-collector.hwmon
+        - --collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)
+        - --collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$
+        volumeMounts:
+        - mountPath: /host/proc
+          name: proc
+          readOnly: true
+        - mountPath: /host/sys
+          name: sys
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /proc
+        name: proc
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /
+        name: root
