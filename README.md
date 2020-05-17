@@ -84,7 +84,7 @@ xUndero Platform repository
     01-namespace.yaml
     02-serviceaccount.yaml
     03-clusterrole.yaml
-    04-rolebinding.yaml
+    04-clusterrolebinding.yaml
     ```
     * Для получения шаблона кластерной роли я использовал команду:  
     *`kubectl get clusterrole view -o yaml > 03-clusterrole.yaml`*
