@@ -69,3 +69,42 @@ xUndero Platform repository
     ```
     * Для запрета запуска pod-ов на определённых нодах (в данном случае - master) присутствуют метки (taints)
       и чтобы обойти фильтры этих меток в настройках pod-ов (и их контроллеров) вводятся tolerations.
+
+## ДЗ 3 Security
+1. ### task01;
+  * В результате получились файлы:
+    ```
+    01-serviceaccount.yaml
+    02-clusterrolebinding.yaml
+    03-serviceaccount.yaml
+    ```
+2. ### task02;
+  * В результате получились файлы:
+    ```
+    01-namespace.yaml
+    02-serviceaccount.yaml
+    03-clusterrole.yaml
+    04-rolebinding.yaml
+    ```
+    * Для получения шаблона кластерной роли я использовал команду:  
+    *`kubectl get clusterrole view -o yaml > 03-clusterrole.yaml`*
+
+3. ### task03;
+  * В результате получились файлы:
+    ```
+    01-namespace.yaml
+    02-serviceaccount.yaml
+    03-rolebinding.yaml
+    04-serviceaccount.yaml
+    05-rolebinding.yaml
+
+    kubectl -n dev get serviceaccounts,rolebindings
+    NAME                     SECRETS   AGE
+    serviceaccount/default   1         52m
+    serviceaccount/jane      1         52m
+    serviceaccount/ken       1         51m
+
+    NAME                                                   ROLE                AGE
+    rolebinding.rbac.authorization.k8s.io/dev-admin-jane   ClusterRole/admin   51m
+    rolebinding.rbac.authorization.k8s.io/dev-view-ken     ClusterRole/view    50m
+    ```
