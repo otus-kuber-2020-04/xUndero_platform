@@ -11,9 +11,15 @@ spec:
     name: app
     emptyDir: {}
   containers:
-  - 
+  -
     name: web
     image: xunder/testweb:1.0
+    readinessProbe:
+      httpGet:
+        path: "/index.html"
+        port: 80
+    livenessProbe:
+      tcpSocket: { port: 8000 }
     volumeMounts:
     -
       name: app

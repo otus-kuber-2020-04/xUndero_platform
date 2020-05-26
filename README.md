@@ -1,20 +1,120 @@
 # xUndero_platform
 xUndero Platform repository
 
-## ДЗ 1 Знакомство с kubernetes
-1. #### Настройка локального окружения:
-  * Запуск кластера с помощью minikube с драйвером docker (опробован также запуск с kind);
-  * Рассмотрены инструменты Dashboard и k9s;
-  * При остановке pod-ов они восстанавливаются, т.к. судя по описанию:
-    * core-dns управляется с помощью ReplicaSet,
-    * kube-proxy управляется с помощью DaemonSet,
-    * etcd, apiserver, controller, scheduler - статические pod-ы, которыми управляет kubelet на master-ноде;
-2. #### Создание нового pod-а:
-  * Создание Dockerfile для pod-а;
-  * Добавление в pod init контейнера;
-3. #### Запуск frontend;
-  * При запуске из созданного манифеста контейнер пишет, что не опредедена переменная PRODUCT_CATALOG_SERVICE_ADDR;
-  * После добавления этой переменной и других переменных, указанных в манифесте по ссылке, pod запустился.
+## ДЗ 4 Сетевое взаимодействие
+1. ### Работа с тестовым веб-приложением:
+  * Добавление проверок Pod:
+    * Получили проверки:
+    ```
+    Liveness:     tcp-socket :8000 delay=0s timeout=1s period=10s #success=1 #failure=3
+    Readiness:    http-get http://:8000/index.html delay=0s timeout=1s period=10s #success=1 #failure=3
+    ```
+    * По вопросу: конфигурация livenessProbe не имеет смысла, т. к. код возврата команды всегда 0
+      (возможно имеет смысл, когда следует проверить наличие команд ps и/или grep)
+  * Создание объекта Deployment:
+    * Deployment развёрнут:
+    ```
+    Conditions:
+    Type           Status  Reason
+    ----           ------  ------
+    Available      True    MinimumReplicasAvailable
+    Progressing    True    NewReplicaSetAvailable
+    ```
+    И проверили варианты стратегии (вариант с двумя 0 неприемлем!)
+  * Добавление сервисов в кластер (ClusterIP):
+    ```
+    kubectl describe service web-svc-cip 
+    Name:              web-svc-cip
+    Namespace:         default
+    Labels:            <none>
+    Annotations:       Selector:  app=web
+    Type:              ClusterIP
+    IP:                10.97.48.101
+    Port:              <unset>  80/TCP
+    TargetPort:        8000/TCP
+    Endpoints:         172.17.0.10:8000,172.17.0.7:8000,172.17.0.9:8000
+    ```
+  * Включение режима балансировки IPVS.
+
+
+2. ### Доступ к приложению извне кластера:
+  * Установка MetalLB в Layer2-режиме;
+  * Добавление сервиса LoadBalancer:
+    ```
+    kubectl describe service web-svc-lb 
+    Name:                     web-svc-lb
+    Namespace:                default
+    Labels:                   <none>
+    Annotations:              Selector:  app=web
+    Type:                     LoadBalancer
+    IP:                       10.111.178.234
+    LoadBalancer Ingress:     172.17.255.1
+    Port:                     <unset>  80/TCP
+    TargetPort:               8000/TCP
+    NodePort:                 <unset>  31258/TCP
+    Endpoints:                172.17.0.10:8000,172.17.0.7:8000,172.17.0.9:8000
+    Session Affinity:         None
+    External Traffic Policy:  Cluster
+    ```
+    * Сервис получил адрес из пула адресов MetalLB;
+    * После создания сервиса для coredns проверим его работу:
+    ```
+    nslookup web-svc-cip.default.svc.cluster.local 172.17.255.10
+    Server:		172.17.255.10
+    Address:	172.17.255.10#53
+
+    Name:	web-svc-cip.default.svc.cluster.local
+    Address: 10.97.48.101
+    ```
+  * Установка Ingress-контроллера и прокси ingress-nginx;
+  * Создание правил Ingress:
+    * Создано правило для отображения дашборда через Ingress;
+    * Использован Ingress для переключения части запросов на специально созданный deployment:
+      Для основного и тестового релизов использовалось имя хоста testweb.io
+      и для проверки применялись команды:
+      ```
+      curl --resolve testweb.io:80:172.17.255.2 http://testweb.io/web
+      curl -H "canary: always" --resolve testweb.io:80:172.17.255.2 http://testweb.io/web
+      ```
+
+## ДЗ 3 Security
+1. ### task01;
+  * В результате получились файлы:
+    ```
+    01-serviceaccount.yaml
+    02-clusterrolebinding.yaml
+    03-serviceaccount.yaml
+    ```
+2. ### task02;
+  * В результате получились файлы:
+    ```
+    01-namespace.yaml
+    02-serviceaccount.yaml
+    03-clusterrole.yaml
+    04-clusterrolebinding.yaml
+    ```
+    * Для получения шаблона кластерной роли я использовал команду:  
+    *`kubectl get clusterrole view -o yaml > 03-clusterrole.yaml`*
+
+3. ### task03;
+  * В результате получились файлы:
+    ```
+    01-namespace.yaml
+    02-serviceaccount.yaml
+    03-rolebinding.yaml
+    04-serviceaccount.yaml
+    05-rolebinding.yaml
+
+    kubectl -n dev get serviceaccounts,rolebindings
+    NAME                     SECRETS   AGE
+    serviceaccount/default   1         52m
+    serviceaccount/jane      1         52m
+    serviceaccount/ken       1         51m
+
+    NAME                                                   ROLE                AGE
+    rolebinding.rbac.authorization.k8s.io/dev-admin-jane   ClusterRole/admin   51m
+    rolebinding.rbac.authorization.k8s.io/dev-view-ken     ClusterRole/view    50m
+    ```
 
 ## ДЗ 2 Kubernetes controllers
 1. ### Запуск кластера в kind;
@@ -70,41 +170,17 @@ xUndero Platform repository
     * Для запрета запуска pod-ов на определённых нодах (в данном случае - master) присутствуют метки (taints)
       и чтобы обойти фильтры этих меток в настройках pod-ов (и их контроллеров) вводятся tolerations.
 
-## ДЗ 3 Security
-1. ### task01;
-  * В результате получились файлы:
-    ```
-    01-serviceaccount.yaml
-    02-clusterrolebinding.yaml
-    03-serviceaccount.yaml
-    ```
-2. ### task02;
-  * В результате получились файлы:
-    ```
-    01-namespace.yaml
-    02-serviceaccount.yaml
-    03-clusterrole.yaml
-    04-clusterrolebinding.yaml
-    ```
-    * Для получения шаблона кластерной роли я использовал команду:  
-    *`kubectl get clusterrole view -o yaml > 03-clusterrole.yaml`*
-
-3. ### task03;
-  * В результате получились файлы:
-    ```
-    01-namespace.yaml
-    02-serviceaccount.yaml
-    03-rolebinding.yaml
-    04-serviceaccount.yaml
-    05-rolebinding.yaml
-
-    kubectl -n dev get serviceaccounts,rolebindings
-    NAME                     SECRETS   AGE
-    serviceaccount/default   1         52m
-    serviceaccount/jane      1         52m
-    serviceaccount/ken       1         51m
-
-    NAME                                                   ROLE                AGE
-    rolebinding.rbac.authorization.k8s.io/dev-admin-jane   ClusterRole/admin   51m
-    rolebinding.rbac.authorization.k8s.io/dev-view-ken     ClusterRole/view    50m
-    ```
+## ДЗ 1 Знакомство с kubernetes
+1. #### Настройка локального окружения:
+  * Запуск кластера с помощью minikube с драйвером docker (опробован также запуск с kind);
+  * Рассмотрены инструменты Dashboard и k9s;
+  * При остановке pod-ов они восстанавливаются, т.к. судя по описанию:
+    * core-dns управляется с помощью ReplicaSet,
+    * kube-proxy управляется с помощью DaemonSet,
+    * etcd, apiserver, controller, scheduler - статические pod-ы, которыми управляет kubelet на master-ноде;
+2. #### Создание нового pod-а:
+  * Создание Dockerfile для pod-а;
+  * Добавление в pod init контейнера;
+3. #### Запуск frontend;
+  * При запуске из созданного манифеста контейнер пишет, что не опредедена переменная PRODUCT_CATALOG_SERVICE_ADDR;
+  * После добавления этой переменной и других переменных, указанных в манифесте по ссылке, pod запустился.
