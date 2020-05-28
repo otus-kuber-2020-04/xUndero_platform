@@ -1,6 +1,56 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 5 Volumes, Storages,StatefulSet
+1. ### Создание StatefulSet:
+  ```
+  kubectl get all                                
+  NAME          READY   STATUS    RESTARTS   AGE
+  pod/minio-0   1/1     Running   0          53m
+
+  NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
+  service/minio        ClusterIP   None         <none>        9000/TCP   24h
+
+  NAME                     READY   AGE
+  statefulset.apps/minio   1/1     53m
+
+  kubectl describe pv 
+  Name:              pvc-64f23db0-549b-402d-b4be-b8f1e6e36b63
+  Labels:            <none>
+  Annotations:       pv.kubernetes.io/provisioned-by: rancher.io/local-path
+  Finalizers:        [kubernetes.io/pv-protection]
+  StorageClass:      standard
+  Status:            Bound
+  Claim:             default/data-minio-0
+  Reclaim Policy:    Delete
+  Access Modes:      RWO
+  VolumeMode:        Filesystem
+  Capacity:          10Gi
+  Node Affinity:     
+    Required Terms:  
+      Term 0:        kubernetes.io/hostname in [kind-control-plane]
+  Message:           
+  Source:
+      Type:          HostPath (bare host directory volume)
+      Path:          /var/local-path-provisioner/pvc-64f23db0-549b-402d-b4be-b8f1e6e36b63
+      HostPathType:  DirectoryOrCreate
+  ```
+  * Для проверки пробросили порт, затем вошли с помощью браузера и создали bucket;
+    Затем проверили в консоли:
+    ```
+    mc config host add minio http://localhost:9000
+    mc ls minio
+    [2020-05-27 22:38:07 +05]      0B big-bucket/
+    [2020-05-27 22:50:52 +05]      0B new-bucket/
+    ```
+
+1. ### Создание Secrets:
+  * Для создания манифеста secret данные были перекодированы:
+  ```
+  echo -n minio | base64
+  echo -n minio123 | base64
+  ```
+
 ## ДЗ 4 Сетевое взаимодействие
 1. ### Работа с тестовым веб-приложением:
   * Добавление проверок Pod:
