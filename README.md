@@ -1,6 +1,113 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 6 Шаблонизация манифестов Kubernetes
+1. ### Установка готовых Helm charts:
+  * nginx-ingress:
+  ```
+  kubectl get all -n nginx-ingress
+  NAME                                                 READY   STATUS    RESTARTS   AGE
+  pod/nginx-ingress-controller-8545f845c4-fjx96        1/1     Running   0          44h
+  pod/nginx-ingress-default-backend-59944969d4-8dw4n   1/1     Running   0          43h
+
+  NAME                                    TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+  service/nginx-ingress-controller        LoadBalancer   10.51.247.204   34.77.85.33   80:31152/TCP,443:32052/TCP   8d
+  service/nginx-ingress-default-backend   ClusterIP      10.51.244.101   <none>        80/TCP                       8d
+
+  NAME                                            READY   UP-TO-DATE   AVAILABLE   AGE
+  deployment.apps/nginx-ingress-controller        1/1     1            1           8d
+  deployment.apps/nginx-ingress-default-backend   1/1     1            1           8d
+
+  NAME                                                       DESIRED   CURRENT   READY   AGE
+  replicaset.apps/nginx-ingress-controller-8545f845c4        1         1         1       8d
+  replicaset.apps/nginx-ingress-default-backend-59944969d4   1         1         1       8d
+  ```
+  * cert-manager:
+    Для установки cert-manager-а использовали следующие команды:
+    ```
+    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.15.1/cert-manager.crds.yaml
+    helm install \\n  cert-manager jetstack/cert-manager \\n  --namespace cert-manager \\n  --version v0.15.1 \\n  --set ingressShim.defaultIssuerName=example-iss
+    uer \\n  --set ingressShim.defaultIssuerKind=ClusterIssuer \\n  --set ingressShim.defaultIssuerGroup=cert-manager.io
+    ```
+    И для корректной работы должен быть создан ClusterIssuer;
+  * chartmuseum:
+    Сделаны настройки Ingress:
+    ```
+    ingress:
+      enabled: true
+      annotations:
+        kubernetes.io/ingress.class: nginx
+        kubernetes.io/tls-acme: "true"
+        certmanager.k8s.io/cluster-issuer: "example-issuer"
+        certmanager.k8s.io/acme-challenge-type: http01
+      hosts:
+        - name: chartmuseum.34.77.85.33.nip.io
+          path: /
+          tls: true
+          tlsSecret: chartmuseum.34.77.85.33.nip.io
+    ```
+    Для работы с chartmuseum используются следующие команды:
+    ```
+    helm package .
+    curl --data-binary "@mychart-0.1.0.tgz" https://chartmuseum.34.77.85.33.nip.io/api/charts
+    либо:
+    helm repo add chartmuseum https://chartmuseum.34.77.85.33.nip.io
+    helm plugin install https://github.com/chartmuseum/helm-push.git
+    helm push mychart/ chartmuseum
+    а для установки:
+    helm install chartmuseum/mychart
+    ```
+  * harbor:
+  Установлен harbor:
+  ```
+  kubectl get secrets -n harbor -l owner=helm
+  NAME                           TYPE                 DATA   AGE
+  sh.helm.release.v1.harbor.v1   helm.sh/release.v1   1      7d22h
+  ```
+  Создан helmfile для установки nginx-ingress,cert-manager и harbor;
+
+2. ### Создание собственного Helm chart:
+  * Из чарта hipster-shop выделен сервис frontend и созданы параметры для его запуска:
+  ```
+  image:
+    tag: v0.1.3
+
+  replicas: 1
+
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 8080
+    NodePort: 30001
+  ```
+  frontend добавлен в зависимости hipster-shop:
+  ```
+  dependencies:
+    - name: frontend
+    version: 0.1.0
+    repository: "file://../frontend"
+  ```
+  И изменены параметры при запуске:
+  *` helm upgrade --install hipster-shop ./ --namespace hipster-shop --set frontend.service.NodePort=31234 `*
+
+3. ### Kubecfg:
+  С помощью jsonnet созданы манифесты сервисов paymentservice и shippingservice;
+
+4. ### Kustomize:
+  Получили структуру каталогов:
+  ```
+  /kustomize
+  ├── base
+  │   ├── ad-deployment.yaml
+  │   ├── ad-service.yaml
+  │   └── kustomization.yaml
+  └── overrides
+      ├── hipster-shop
+      │   └── kustomization.yaml
+      └── hipster-shop-prod
+          └── kustomization.yaml
+  ```
+
 ## ДЗ 5 Volumes, Storages,StatefulSet
 1. ### Создание StatefulSet:
   ```
@@ -44,7 +151,7 @@ xUndero Platform repository
     [2020-05-27 22:50:52 +05]      0B new-bucket/
     ```
 
-1. ### Создание Secrets:
+2. ### Создание Secrets:
   * Для создания манифеста secret данные были перекодированы:
   ```
   echo -n minio | base64

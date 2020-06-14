@@ -1,0 +1,7 @@
+helmDefaults:
+  wait: true
+  createNamespace: true
+releases:
+  - name: frontend
+    namespace: hipster-shop
+    chart:  ./
