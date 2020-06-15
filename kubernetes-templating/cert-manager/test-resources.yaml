@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager-test
+#---
+#apiVersion: cert-manager.io/v1alpha2
+#kind: ClusterIssuer
+#metadata:
+#  name: test-selfsigned
+#  namespace: cert-manager-test
+#spec:
+#  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: signed-cert
+  namespace: cert-manager-test
+spec:
+  dnsNames:
+    - "34.77.85.33.nip.io"
+  secretName: signed-cert-tls
+  issuerRef:
+    name: example-issuer
+    kind: ClusterIssuer
