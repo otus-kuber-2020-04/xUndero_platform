@@ -1,6 +1,68 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 7 Операторы,CustomResourceDefinition
+1. ### CustomResourceDefinition:
+  * CustomResource:
+  ```
+  kubectl apply -f ./deploy/cr.yaml 
+  error: unable to recognize "./deploy/cr.yaml": no matches for kind "MySQL" in version "otus.homework/v1"
+  ```
+  после добавления crd:
+  ```
+  kubectl get ms
+  NAME             AGE
+  mysql-instance   26s
+  ```
+  после добавления валидации:
+  ```
+  kubectl apply -f ./cr.yaml 
+  error: error validating "./cr.yaml": error validating data: ValidationError(MySQL): unknown field "usless_data" in homework.otus.v1.MySQL; if you choose to ignore these errors, turn validation off with --validate=false
+  ```
+  неплохо-бы упомянуть, что с весии 1.16 версия api изменена на apiextensions.k8s.io/v1
+  и validation на schema;  
+  Для задания обязательных полей используется *`required: ["image","database","password","storage_size"]`*
+  ```
+  kubectl apply -f ./cr.yaml
+  error: error validating "./cr.yaml": error validating data: ValidationError(MySQL.spec): missing required field "password" in homework.otus.v1.MySQL.spec; if you choose to ignore these errors, turn validation off with --validate=false
+  ```
+  
+2. ### Контроллер:
+  * Запустили предложенный контроллер:
+  ```
+  [2020-06-17 19:47:11,197] kopf.objects         [INFO    ] [default/mysql-instance] Handler 'mysql_on_create' succeeded.
+  [2020-06-17 19:47:11,198] kopf.objects         [INFO    ] [default/mysql-instance] All handlers succeeded for creation.
+  ```
+  При запуске контроллера CR уже был создан, но события о нём продолжают периодически приходить,
+  поэтому сработала функция и создались ресурсы.
+  * После внесения всех изменений получаем и до и после удаления и восстановления объекта mysql:
+  ```
+  +----+-------------+
+  | id | name        |
+  +----+-------------+
+  |  1 | some data   |
+  |  2 | some data-2 |
+  +----+-------------+
+  ```
+  * Для создания образа использовался образ python:3.7-slim.
+  После деплоя оператора после создания и пересоздания объекта mysql:
+  ```
+  export MYSQLPOD=$(kubectl get pods -l app=mysql-instance -o jsonpath="{.items[*].metadata.name}")
+  kubectl exec -it $MYSQLPOD -- mysql -potuspassword -e "select * from test;" otus-database
+  +----+-------------+
+  | id | name        |
+  +----+-------------+
+  |  1 | some data   |
+  |  2 | some data-2 |
+  |  3 | some data-3 |
+  |  4 | some data-4 |
+  +----+-------------+
+
+  kubectl get jobs
+  NAME                         COMPLETIONS   DURATION   AGE
+  restore-mysql-instance-job   1/1           10s        5m21s
+  ```  
+
 ## ДЗ 6 Шаблонизация манифестов Kubernetes
 1. ### Установка готовых Helm charts:
   * nginx-ingress:

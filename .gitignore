@@ -5,3 +5,5 @@
 .terraform/
 key.json
 Chart.lock
+env/
+__pycache__/

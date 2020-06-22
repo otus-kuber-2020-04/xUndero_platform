@@ -10,6 +10,7 @@ provider "google" {
 
 resource "google_container_cluster" "primary" {
   name                     = "my-cluster"
+  min_master_version       = 1.16
   location                 = var.zone
   remove_default_node_pool = true
   initial_node_count       = 1
@@ -28,7 +29,7 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
   name       = "my-node-pool"
   location   = var.zone
   cluster    = google_container_cluster.primary.name
-  node_count = 3
+  node_count = 2
 
   node_config {
     preemptible  = true
@@ -46,7 +47,7 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
   }
 }
 
-resource "google_container_node_pool" "secondary_preemptible_nodes" {
+/*resource "google_container_node_pool" "secondary_preemptible_nodes" {
   name       = "my-node-pool2"
   location   = var.zone
   cluster    = google_container_cluster.primary.name
@@ -66,7 +67,7 @@ resource "google_container_node_pool" "secondary_preemptible_nodes" {
       "https://www.googleapis.com/auth/monitoring",
     ]
   }
-}
+}*/
 
 resource "google_compute_firewall" "k8s_nodeports" {
   name        = "k8s-nodeports"
