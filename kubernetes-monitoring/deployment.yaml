@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: testweb
+spec:
+  selector:
+    matchLabels:
+      app: testweb
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: testweb
+    spec:
+      volumes:
+      - name: app
+        emptyDir: {}
+      containers:
+      - name: exporter
+        image: nginx/nginx-prometheus-exporter:0.8.0
+        ports:
+        - name: exporter
+          containerPort: 9113
+        args:
+          - -nginx.scrape-uri=http://web:8000/basic_status
+      - name: web
+        image: xunder/testweb:3.0
+        ports:
+        - name: web
+          containerPort: 8000
+        readinessProbe:
+          httpGet:
+            path: "/index.html"
+            port: 8000
+        livenessProbe:
+          tcpSocket: { port: 8000 }
+        volumeMounts:
+        - name: app
+          mountPath: /app
+      initContainers:
+      - name: index
+        image: busybox:1.31
+        volumeMounts:
+        - name: app
+          mountPath: /app
+        command: ['sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh']
+  minReadySeconds: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
