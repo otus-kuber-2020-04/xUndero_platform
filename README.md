@@ -1,6 +1,34 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 8 Мониторинг сервиса в кластере k8s
+1. ### Создание образа nginx:
+  * Образ собран с параметром *`--with-http_stub_status_module`*;
+
+2. ### Добавление nginx exporter:
+  * В одном поде с nginx запущен exporter;
+
+3. ### Запуск prometheus-operator:
+  * Для запуска использовался пример с официального сайта:
+    *`https://github.com/coreos/prometheus-operator/blob/master/bundle.yaml`*  
+    и создан объект prometheus:
+  ```
+  apiVersion: monitoring.coreos.com/v1
+  kind: Prometheus
+  metadata:
+    name: prometheus
+  spec:
+    serviceAccountName: prometheus-operator
+    serviceMonitorSelector:
+      matchLabels:
+        team: frontend
+    resources:
+      requests:
+        memory: 400Mi
+    enableAdminAPI: false
+  ```
+  * После запуска пришлось добавить в ClusterRole действия list и watch для объектов service.
+
 ## ДЗ 7 Операторы,CustomResourceDefinition
 1. ### CustomResourceDefinition:
   * CustomResource:
