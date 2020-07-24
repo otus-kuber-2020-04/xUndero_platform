@@ -1,5 +1,62 @@
 # xUndero_platform
 xUndero Platform repository
+ 
+## ДЗ 9 Сервисы централизованного логирования для компонентов Kubernetes и приложений
+1. ### Подготовка кластера и приложения:
+  * Кластер создан с помощью terraform;
+  * Приложение запущено:
+  ```
+  kubectl get pods -n microservices-demo -o wide
+  NAME                                     READY   STATUS    RESTARTS   AGE     IP           NODE                                        NOMINATED NODE   READINESS GATES
+  adservice-9679d5b56-zkkr5                1/1     Running   0          2m38s   10.48.0.19   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  cartservice-66b4c7d59-dvkn8              1/1     Running   2          2m44s   10.48.0.14   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  checkoutservice-6cb96b65fd-8xtvv         1/1     Running   0          2m51s   10.48.0.9    gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  currencyservice-68df8c8788-fxmtb         1/1     Running   0          2m42s   10.48.0.16   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  emailservice-6fc9c98fd-wsxb5             1/1     Running   0          2m52s   10.48.0.8    gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  frontend-5559967bcd-swt47                1/1     Running   0          2m48s   10.48.0.11   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  loadgenerator-674846f899-zlmjv           1/1     Running   4          2m43s   10.48.0.15   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  paymentservice-6cb4db7678-ghs6k          1/1     Running   0          2m46s   10.48.0.12   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  productcatalogservice-768b67d968-nxvh9   1/1     Running   0          2m45s   10.48.0.13   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  recommendationservice-f45c4979d-l7sdc    1/1     Running   0          2m49s   10.48.0.10   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  redis-cart-cfcbcdf6c-drr64               1/1     Running   0          2m40s   10.48.0.18   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  shippingservice-5d68c4f8d4-96sx6         1/1     Running   0          2m41s   10.48.0.17   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
+  ```
+
+1. ### Установка EFK стека:
+  * elasticsearch:
+  ```
+  kubectl get pods -n observability -l chart=elasticsearch -o wide
+  NAME                     READY   STATUS    RESTARTS   AGE   IP          NODE                                      NOMINATED NODE   READINESS GATES
+  elasticsearch-master-0   1/1     Running   0          10m   10.48.1.4   gke-my-cluster-infra-pool-4bdb2cc3-xl8g   <none>           <none>
+  elasticsearch-master-1   1/1     Running   0          10m   10.48.8.2   gke-my-cluster-infra-pool-4bdb2cc3-7j1l   <none>           <none>
+  elasticsearch-master-2   1/1     Running   0          10m   10.48.9.2   gke-my-cluster-infra-pool-4bdb2cc3-qhsn   <none>           <none>
+  ```
+
+2. ### Мониторинг ElasticSearch:
+  * После добавления конфигурации алерта:
+  ```
+  additionalPrometheusRules:
+  - name: elasticsearch.rules
+    groups:
+    - name: elasticsearch
+      rules:
+      - alert: ElasticsearchTooFewNodesRunning
+        expr: elasticsearch_cluster_health_number_of_nodes < 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: There are only {{$value}} < 3 ElasticSearch nodes running
+          summary: ElasticSearch running on less than 3 nodes
+  ```
+  и отключения одной ноды алерт сработал;
+  ![Пример алерта](https://raw.githubusercontent.com/otus-kuber-2020-04/xUndero_platform/kubernetes-logging/kubernetes-logging/alertmanager.png)
+
+3. ### EFK | nginx ingress:
+  * Рассмотрели логи nginx-ingress и визуализировали их;
+
+4. ### Loki:
+  * Также создан дашборд с Loki;
 
 ## ДЗ 8 Мониторинг сервиса в кластере k8s
 1. ### Создание образа nginx:
