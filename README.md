@@ -1,6 +1,166 @@
 # xUndero_platform
 xUndero Platform repository
- 
+
+## ДЗ 10 Vault+k8s
+1. ### Установка и начало работы с Vault:
+  * После установки:
+  ```
+  helm status vault -n vault
+  NAME: vault
+  LAST DEPLOYED: Sun Jul 26 18:38:20 2020
+  NAMESPACE: vault
+  STATUS: deployed
+  REVISION: 1
+  TEST SUITE: None
+  NOTES:
+  Thank you for installing HashiCorp Vault!
+
+  kubectl -n vault logs vault-0
+  ...
+  2020-07-26T13:39:05.302Z [INFO]  core: seal configuration missing, not initialized
+  2020-07-26T13:39:08.324Z [INFO]  core: seal configuration missing, not initialized
+  ```
+  * После инициализации:
+  ```
+  kubectl -n vault exec -it vault-0 -- vault operator init --key-shares=1 --key-threshold=1
+  Unseal Key 1: KiKaWg7/u/CzEUAJH+GpJFFSGwUjwZiS1ngKKfXEDHA=
+
+  Initial Root Token: s.ogbEXKYwcfhJp6mUREXZK3nu
+  ```
+  * После unseal:
+  ```
+  kubectl -n vault exec -it vault-2 -- vault status
+  Key             Value
+  ---             -----
+  Seal Type       shamir
+  Initialized     true
+  Sealed          false
+  Total Shares    1
+  Threshold       1
+  Version         1.4.2
+  Cluster Name    vault-cluster-3e4c4917
+  Cluster ID      cea5c402-5bb1-0892-6426-e1f598c2ac92
+  HA Enabled      true
+  HA Cluster      https://vault-2.vault-internal:8201
+  HA Mode         active
+  ```
+  * 
+  ```
+  kubectl -n vault exec -it vault-0 -- vault login    
+  Token (will be hidden): 
+  Success! You are now authenticated. The token information displayed below
+  is already stored in the token helper. You do NOT need to run "vault login"
+  again. Future Vault requests will automatically use this token.
+
+  Key                  Value
+  ---                  -----
+  token                s.ogbEXKYwcfhJp6mUREXZK3nu
+  token_accessor       I7TEApkyL8qw6U76FmfvY4Pm
+  token_duration       ∞
+  token_renewable      false
+  token_policies       ["root"]
+  identity_policies    []
+  policies             ["root"]
+  ```
+  * 
+  ```
+  kubectl -n vault exec -it vault-0 -- vault auth list
+  Path      Type     Accessor               Description
+  ----      ----     --------               -----------
+  token/    token    auth_token_76ad9a0f    token based credentials
+  ```
+  * 
+  ```
+  kubectl -n vault exec -it vault-0 -- vault read otus/otus-ro/config                                
+  Key                 Value
+  ---                 -----
+  refresh_interval    768h
+  password            asajkjkahs
+  username            otus
+  ```
+
+2. ### Авторизация через k8s:
+  * Включим авторизацию k8s:
+  ```
+  kubectl -n vault exec -it vault-0 -- vault auth list
+  Path           Type          Accessor                    Description
+  ----           ----          --------                    -----------
+  kubernetes/    kubernetes    auth_kubernetes_da05e5da    n/a
+  token/         token         auth_token_76ad9a0f         token based credentials
+  ```
+    Для получения переменной K8S_HOST использовался путь через cluster-info,  
+    т. к. в файле config содержится информация о нескольких кластерах;  
+  * Ошибка записи возникла потому, что в политике разрешено создавать но не разрешено изменять  
+    Для исправления следует добавить в политику способность "update";
+
+3. ### CA на базе Vault:
+  ```
+  kubectl -n vault exec -it vault-0 -- vault write pki_int/issue/devlab-dot-ru common_name="gitlab.devlab.ru" ttl="24h"
+  Error writing data to pki_int/issue/devlab-dot-ru: Error making API request.
+
+  URL: PUT http://127.0.0.1:8200/v1/pki_int/issue/devlab-dot-ru
+  Code: 400. Errors:
+
+  unknown role: devlab-dot-ru
+  command terminated with exit code 2
+  ```
+  ```
+  kubectl -n vault exec -it vault-0 -- vault write pki_int/issue/example-dot-ru common_name="gitlab.example.ru" ttl="24h"
+  Key                 Value
+  ---                 -----
+  ca_chain            [-----BEGIN CERTIFICATE-----
+  MIIDnDCCAoSgAwIBAgIUOoq1xhUSbqFKAqVjuWSd4UMZfUkwDQYJKoZIhvcNAQEL
+  ...
+  gyadYMMugFrrltn/CA01hA==
+  -----END CERTIFICATE-----]
+  certificate         -----BEGIN CERTIFICATE-----
+  MIIDZzCCAk+gAwIBAgIUdzHb72RczmdT6PA5glAyQfT6yb8wDQYJKoZIhvcNAQEL
+  ...
+  OJQTH0V5dpDqFGI=
+  -----END CERTIFICATE-----
+  expiration          1596032425
+  issuing_ca          -----BEGIN CERTIFICATE-----
+  MIIDnDCCAoSgAwIBAgIUOoq1xhUSbqFKAqVjuWSd4UMZfUkwDQYJKoZIhvcNAQEL
+  gyadYMMugFrrltn/CA01hA==
+  -----END CERTIFICATE-----
+  private_key         -----BEGIN RSA PRIVATE KEY-----
+  MIIEowIBAAKCAQEAzL6r7xPw/SPq9nr9Zj1//REgY2c788o+XdjTJBhTmC7ycCfF
+  ...
+  3GkeEk5d8f7KNPGMb02b2TqjueiSICFll+XeDXMfFjmGs4h8yH90
+  -----END RSA PRIVATE KEY-----
+  private_key_type    rsa
+  serial_number       77:31:db:ef:64:5c:ce:67:53:e8:f0:39:82:50:32:41:f4:fa:c9:bf
+  ```
+  * Для включения TLS генерим закрытый ключ:  
+    *`openssl genrsa -out vault.key 2048`*
+    затем создаём запрос на сертификат:  
+    *`openssl req -config ./vault_gke_csr.cnf -new -key ./vault.key -nodes -out vault.csr`*  
+    помещаем запрос в кубер:  
+    ```
+    cat <<EOF | kubectl apply -f -
+    apiVersion: certificates.k8s.io/v1beta1
+    kind: CertificateSigningRequest
+    metadata:
+      name: vault.vault
+    spec:
+      request: $(cat vault.csr | base64 | tr -d '\n')
+      usages:
+      - digital signature
+      - key encipherment
+      - server auth
+    EOF    
+    ```
+    и подтверждаем его:  
+    *`kubectl certificate approve vault.vault`*  
+    после достаём сертификат:  
+    *`kubectl get csr vault.vault -o jsonpath='{.status.certificate}' | base64 --decode > vault.crt`*
+    и создаём secret tls:  
+    *`kubectl -n vault create secret tls vault-certs --cert=./vault.crt --key=./vault.key`*  
+  * Включение автообновления сертификата в каталоге ./web  
+    И сертификаты:
+  ![CERT1](https://raw.githubusercontent.com/otus-kuber-2020-04/xUndero_platform/kubernetes-vault/kubernetes-vault/cert1.png)
+  ![CERT2](https://raw.githubusercontent.com/otus-kuber-2020-04/xUndero_platform/kubernetes-vault/kubernetes-vault/cert2.png)
+
 ## ДЗ 9 Сервисы централизованного логирования для компонентов Kubernetes и приложений
 1. ### Подготовка кластера и приложения:
   * Кластер создан с помощью terraform;
@@ -22,7 +182,7 @@ xUndero Platform repository
   shippingservice-5d68c4f8d4-96sx6         1/1     Running   0          2m41s   10.48.0.17   gke-my-cluster-default-pool-ded1b785-wvq8   <none>           <none>
   ```
 
-1. ### Установка EFK стека:
+2. ### Установка EFK стека:
   * elasticsearch:
   ```
   kubectl get pods -n observability -l chart=elasticsearch -o wide
@@ -32,7 +192,7 @@ xUndero Platform repository
   elasticsearch-master-2   1/1     Running   0          10m   10.48.9.2   gke-my-cluster-infra-pool-4bdb2cc3-qhsn   <none>           <none>
   ```
 
-2. ### Мониторинг ElasticSearch:
+3. ### Мониторинг ElasticSearch:
   * После добавления конфигурации алерта:
   ```
   additionalPrometheusRules:
@@ -52,10 +212,10 @@ xUndero Platform repository
   и отключения одной ноды алерт сработал;
   ![Пример алерта](https://raw.githubusercontent.com/otus-kuber-2020-04/xUndero_platform/kubernetes-logging/kubernetes-logging/alertmanager.png)
 
-3. ### EFK | nginx ingress:
+4. ### EFK | nginx ingress:
   * Рассмотрели логи nginx-ingress и визуализировали их;
 
-4. ### Loki:
+5. ### Loki:
   * Также создан дашборд с Loki;
 
 ## ДЗ 8 Мониторинг сервиса в кластере k8s

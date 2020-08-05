@@ -1,0 +1,7 @@
+global:
+  name: consul
+  gossipEncryption:
+    secretName: "consul-gossip-encryption-key"
+    secretKey: "key"
+server:
+  storage: "1Gi"
