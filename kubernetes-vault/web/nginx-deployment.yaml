@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: vault
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "otus"
+        vault.hashicorp.com/agent-inject-secret-tls.pem: "pki/issue/example-dot-ru"
+        vault.hashicorp.com/agent-inject-template-tls.pem: |
+          {{- with secret "pki/issue/example-dot-ru" "common_name=nginx.example.ru" "ttl=60s" -}}
+          {{ .Data.private_key }}
+          {{ .Data.certificate }}
+          {{ .Data.issuing_ca }}
+          {{- end }}
+        vault.hashicorp.com/agent-inject-command-tls.pem: "/bin/sh -c 'pkill -HUP nginx || true'"
+        vault.hashicorp.com/agent-run-as-user: "0"
+      labels:
+        app: nginx
+    spec:
+      serviceAccountName: vault-auth
+      shareProcessNamespace: true
+      volumes:
+      - name: app
+        emptyDir: {}
+      - name: configmap-volume
+        configMap:
+          name: nginxconfigmap
+      containers:
+      - name: nginx
+        image: nginx:1.19.1-alpine
+        ports:
+        - containerPort: 443
+        volumeMounts:
+        - name: configmap-volume
+          mountPath: /etc/nginx/conf.d
+        - name: app
+          mountPath: /app
+      initContainers:
+      - name: index
+        image: busybox:1.31
+        volumeMounts:
+        - name: app
+          mountPath: /app
+        command: ['sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh']

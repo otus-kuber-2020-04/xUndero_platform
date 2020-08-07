@@ -32,15 +32,15 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
   name       = "default-pool"
   location   = var.zone
   cluster    = google_container_cluster.primary.name
-  node_count = 1
-  /*autoscaling {
-    min_node_count = 1
-    max_node_count = 3
-  }*/
+  node_count = 3
+  autoscaling {
+    min_node_count = 3
+    max_node_count = 4
+  }
 
   node_config {
     preemptible  = true
-    machine_type = "n1-standard-2"
+    machine_type = "n1-standard-1"
     disk_size_gb = 10
 
     metadata = {
@@ -54,15 +54,15 @@ resource "google_container_node_pool" "primary_preemptible_nodes" {
   }
 }
 
-resource "google_container_node_pool" "secondary_preemptible_nodes" {
+/*resource "google_container_node_pool" "secondary_preemptible_nodes" {
   name       = "infra-pool"
   location   = var.zone
   cluster    = google_container_cluster.primary.name
-  node_count = 3
-  /*autoscaling {
-    min_node_count = 3
+  node_count = 1
+  autoscaling {
+    min_node_count = 1
     max_node_count = 4
-  }*/
+  }
 
   node_config {
     preemptible  = true
@@ -84,7 +84,7 @@ resource "google_container_node_pool" "secondary_preemptible_nodes" {
       "https://www.googleapis.com/auth/monitoring",
     ]
   }
-}
+}*/
 
 resource "google_compute_firewall" "k8s_nodeports" {
   name        = "k8s-nodeports"

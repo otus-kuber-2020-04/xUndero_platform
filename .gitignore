@@ -7,3 +7,4 @@ key.json
 Chart.lock
 env/
 __pycache__/
+backup.snap

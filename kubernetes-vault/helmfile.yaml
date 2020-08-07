@@ -1,0 +1,17 @@
+helmDefaults:
+  wait: true
+  createNamespace: true
+repositories:
+  - name: hashicorp
+    url: https://helm.releases.hashicorp.com
+releases:
+  - name: consul
+    namespace: vault
+    chart: hashicorp/consul
+    values:
+      - "./consul.values.yaml"
+  - name: vault
+    namespace: vault
+    chart: hashicorp/vault
+    values:
+      - "./vault.values.yaml"
