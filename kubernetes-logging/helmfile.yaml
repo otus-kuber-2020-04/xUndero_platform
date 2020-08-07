@@ -1,0 +1,53 @@
+helmDefaults:
+  wait: true
+  createNamespace: true
+repositories:
+  - name: elastic
+    url: https://helm.elastic.co
+  - name: stable
+    url: https://kubernetes-charts.storage.googleapis.com
+  - name: loki
+    url: https://grafana.github.io/loki/charts
+releases:
+  - name: nginx-ingress
+    namespace: nginx-ingress
+    chart: stable/nginx-ingress
+    values:
+      - "./nginx-ingress.values.yaml"
+  - name: elasticsearch
+    namespace: observability
+    chart: elastic/elasticsearch
+    values:
+      - "./elasticsearch.values.yaml"
+  - name: kibana
+    namespace: observability
+    chart: elastic/kibana
+    values:
+      - "./kibana.values.yaml"
+  - name: fluent-bit
+    namespace: observability
+    chart: stable/fluent-bit
+    values:
+      - "./fluent-bit.values.yaml"
+      - "./infra-pool.values.yaml"
+  - name: prometheus-operator
+    namespace: observability
+    chart: stable/prometheus-operator
+    values:
+      - "./prometheus-operator.values.yaml"
+    set:
+      - name: prometheusOperator.createCustomResource
+        value: false
+  - name: elasticsearch-exporter
+    namespace: observability
+    chart: stable/elasticsearch-exporter
+    set:
+      - name: es.uri
+        value: "http://elasticsearch-master:9200"
+      - name: serviceMonitor.enabled
+        value: true
+  - name: loki
+    namespace: observability
+    chart: loki/loki-stack
+    values:
+      - "./loki.values.yaml"
