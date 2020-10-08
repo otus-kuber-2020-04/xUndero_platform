@@ -72,6 +72,96 @@ xUndero Platform repository
     заменим метки на выдаваемые при создании подов: "netperf-type";  
     и в качестве приёмника укажем сервер.
 
+## ДЗ 14 Подходы к развёртыванию
+1. ### Установка кластера с помощью kubeadm;
+  * После установки master-ноды:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS     ROLES    AGE   VERSION
+  etcd1   NotReady   master   16m   v1.17.4
+  ```
+  * Далее после установки сетевого плагина:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS     ROLES    AGE   VERSION
+  etcd1   Ready   master   16m   v1.17.4
+  ```
+  * При подключении ноды был указан полученный хэш, но в логе оказалось, что хэш не соответствует,  
+и был указан другой. С его помощью нода подключилась:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE   VERSION
+  etcd1   Ready    master   49m   v1.17.4
+  node1   Ready    <none>   52s   v1.17.4
+  ```
+  Подключили все
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE   VERSION
+  etcd1   Ready    master   73m   v1.17.4
+  node1   Ready    <none>   24m   v1.17.4
+  node2   Ready    <none>   26s   v1.17.4
+  node3   Ready    <none>   68s   v1.17.4
+  ```
+2. ### Обновление кластера;
+  * После обновления бинарников:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE    VERSION
+  etcd1   Ready    master   110m   v1.18.0
+  node1   Ready    <none>   61m    v1.17.4
+  node2   Ready    <none>   37m    v1.17.4
+  node3   Ready    <none>   38m    v1.17.4
+  ```
+  А версия API сервера 1.17.12, т. к. манифест и соответственно образ не обновлялся.
+  * Обновили все ноды:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE    VERSION
+  etcd1   Ready    master   151m   v1.18.0
+  node1   Ready    <none>   102m   v1.18.0
+  node2   Ready    <none>   78m    v1.18.0
+  node3   Ready    <none>   79m    v1.18.0
+  ```
+3. ### Установка с помощью kubespray;
+  * Для установки получили следующий файл inventory:
+  ```
+  [all]
+  master1 ansible_host=35.205.10.24 etcd_member_name=etcd1
+  node1 ansible_host=104.199.11.18
+  node2 ansible_host=34.77.222.59
+  node3 ansible_host=34.76.85.235
+
+  [kube-master]
+  master1
+
+  [etcd]
+  master1
+
+  [kube-node]
+  node1
+  node2
+  node3
+
+  [k8s-cluster:children]
+  kube-node
+  kube-master
+  ```
+  * Чтоб в сертификат был добавлен внешний IP master-ноды:  
+  добавим его в переменную supplementary_addresses_in_ssl_keys  
+  в файле /inventory/mycluster/group_vars/k8s-cluster/k8s-cluster.yml;  
+  * А также включим опцию kubeconfig_localhost: true для копирования файла конфигурации  
+  в локальный каталог (в полученном файле admin.conf в последствии следует изменить ip-адрес  
+  на внешний);
+  ```
+  (env) ➜  kubespray git:(master) ✗ kubectl get nodes   
+  NAME      STATUS   ROLES    AGE   VERSION
+  master1   Ready    master   15m   v1.18.6
+  node1     Ready    <none>   14m   v1.18.6
+  node2     Ready    <none>   14m   v1.18.6
+  node3     Ready    <none>   14m   v1.18.6
+  ```
+
 ## ДЗ 10 Vault+k8s
 1. ### Установка и начало работы с Vault:
   * После установки:
