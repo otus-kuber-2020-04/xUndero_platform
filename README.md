@@ -1,6 +1,77 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 13 Отладка и тестирование в Kubernetes
+1. ### kubectl debug:
+  * После установки kubectl-debug
+  ```
+  ➜  ~ kubectl debug --agentless=false --port-forward nginx-86c57db685-jf6c6
+  pod nginx-86c57db685-jf6c6 PodIP 10.112.1.8, agentPodIP 10.132.15.218
+  wait for forward port to debug agent ready...
+  Forwarding from 127.0.0.1:10027 -> 10027
+  Forwarding from [::1]:10027 -> 10027
+  Handling connection for 10027
+                               pulling image nicolaka/netshoot:latest... 
+  latest: Pulling from nicolaka/netshoot
+  cbdbe7a5bc2a: Pull complete 
+  fa7edde5704a: Pull complete 
+  d142e371ed28: Pull complete 
+  7bc9cb006bce: Pull complete 
+  a4d2c327d444: Pull complete 
+  428e55c983a8: Pull complete 
+  1209022df24d: Pull complete 
+  b74093e72c31: Pull complete 
+  Digest: sha256:04786602e5a9463f40da65aea06fe5a825425c7df53b307daa21f828cfe40bf8
+  Status: Downloaded newer image for nicolaka/netshoot:latest
+  starting debug container...
+  container created, open tty...
+  bash-5.0# strace -c -p1
+  strace: Process 1 attached
+  ```
+  * Команда запустилась без ошибки, проверим capabilities:
+  ```
+  @gke-my-cluster-default-pool-4bd48835-p559 ~ $ sudo docker inspect 01b | grep -i -A 1 -B 1 trace
+            "CapAdd": [
+                "SYS_PTRACE",
+                "SYS_ADMIN"
+  ```
+  - уже всё есть;
+
+2. ### iptables-tailer:
+  * Первый запуск теста прошёл удачно:
+  ```
+  ➜  netperf-operator git:(master) kubectl describe netperf               
+  Name:         example
+  Namespace:    default
+  Labels:       <none>
+  Annotations:  API Version:  app.example.com/v1alpha1
+  Kind:         Netperf
+  Metadata:
+    Creation Timestamp:  2020-10-06T16:03:34Z
+    Generation:          4
+    Resource Version:    7225
+    Self Link:           /apis/app.example.com/v1alpha1/namespaces/default/netperfs/example
+    UID:                 b42f5536-086f-43d2-8181-996eb1cce04b
+  Spec:
+    Client Node:  
+    Server Node:  
+  Status:
+    Client Pod:          netperf-client-996eb1cce04b
+    Server Pod:          netperf-server-996eb1cce04b
+    Speed Bits Per Sec:  8447.41
+    Status:              Done
+  Events:                <none>
+  ```
+  * Установку iptables-tailer сделаем из манифеста daemonset.yaml из репозитория проекта с изменениями из файла Александра.
+
+  * Для отображения в логах имён подов изменим переменную "POD_IDENTIFIER" на "name"
+  ```
+    Warning  PacketDrop  5m57s (x5 over 23m)  kube-iptables-tailer  Packet dropped when receiving traffic from netperf-client-d509e63dd79c (10.112.1.21)
+  ```
+  * А после исправим политику:
+    заменим метки на выдаваемые при создании подов: "netperf-type";  
+    и в качестве приёмника укажем сервер.
+
 ## ДЗ 14 Подходы к развёртыванию
 1. ### Установка кластера с помощью kubeadm;
   * После установки master-ноды:
