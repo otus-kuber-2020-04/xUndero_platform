@@ -5,7 +5,8 @@ metadata:
 spec:
   containers:
     - name: my-frontend
-      image: busybox
+#      image: busybox
+      image: debian:stretch-slim
       volumeMounts:
       - mountPath: "/data"
         name: my-csi-volume
