@@ -1,6 +1,49 @@
 # xUndero_platform
 xUndero Platform repository
 
+## ДЗ 12 CSI
+1. ### Установка csi:
+  * После установки создадим в поде данные:
+  ```
+  # touch /data/hi-otus
+  # ls -la /data/
+  total 8
+  drwxr-xr-x    2 root     root          4096 Oct 15 16:24 .
+  drwxr-xr-x    1 root     root          4096 Oct 15 16:19 ..
+  -rw-r--r--    1 root     root             0 Oct 15 16:24 hi-otus
+  ```
+  * Попробуем пересоздать под - результат тот-же:
+  ```
+  # ls -la /data/
+  total 8
+  drwxr-xr-x    2 root     root          4096 Oct 15 16:24 .
+  drwxr-xr-x    1 root     root          4096 Oct 15 16:53 ..
+  -rw-r--r--    1 root     root             0 Oct 15 16:24 hi-otus
+  ```
+  * Найдём данные на ноде:
+  ```
+  vagrant@k1s:~$ sudo find / -name "hi-otus"
+  /var/lib/kubelet/pods/ef4877d9-cd1f-4987-96b2-6e2ad7337a04/volumes/kubernetes.io~csi/pvc-446ee626-467b-4d83-911d-8aa43191097a/mount/hi-otus
+  /var/lib/csi-hostpath-data/995ed3ef-0f01-11eb-8ac7-f6005d93a04d/hi-otus
+  ```
+2. ### Создание snapshot-ов:
+  * После создания объекта VolumeSnapshot получим:
+  ```
+  vagrant@k1s:~$ ls -la /var/lib/csi-hostpath-data/
+  total 20
+  drwxr-xr-x  4 root root 4096 Oct 17 18:02 .
+  drwxr-xr-x 45 root root 4096 Oct 15 15:56 ..
+  drwxr-xr-x  2 root root 4096 Oct 17 18:00 31cf11d5-10a2-11eb-8d83-ce1ebbbc7a5a
+  -rw-r--r--  1 root root  124 Oct 17 18:02 dae2e54a-10a2-11eb-8d83-ce1ebbbc7a5a.snap
+  ```
+  * Восстанавливать будем в другой pvc, поэтому получаем:
+  ```
+  ➜  hw git:(kubernetes-storage) ✗ kubectl get pvc                    
+  NAME           STATUS        VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+  hpvc-restore   Bound         pvc-fc406ce2-7b3b-418b-a7b0-0b0420e9b0f6   1Gi        RWO            csi-hostpath-sc   12s
+  storage-pvc   Bound         pvc-996597c9-8286-469b-a70d-b97766fed8e6   1Gi        RWO            csi-hostpath-sc   12m
+  ```
+
 ## ДЗ 10 Vault+k8s
 1. ### Установка и начало работы с Vault:
   * После установки:
