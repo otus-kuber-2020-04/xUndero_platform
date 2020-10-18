@@ -1,6 +1,7 @@
 # xUndero_platform
 xUndero Platform repository
 
+
 ## ДЗ 12 CSI
 1. ### Установка csi:
   * После установки создадим в поде данные:
@@ -42,6 +43,167 @@ xUndero Platform repository
   NAME           STATUS        VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
   hpvc-restore   Bound         pvc-fc406ce2-7b3b-418b-a7b0-0b0420e9b0f6   1Gi        RWO            csi-hostpath-sc   12s
   storage-pvc   Bound         pvc-996597c9-8286-469b-a70d-b97766fed8e6   1Gi        RWO            csi-hostpath-sc   12m
+  ```
+
+## ДЗ 13 Отладка и тестирование в Kubernetes
+1. ### kubectl debug:
+  * После установки kubectl-debug
+  ```
+  ➜  ~ kubectl debug --agentless=false --port-forward nginx-86c57db685-jf6c6
+  pod nginx-86c57db685-jf6c6 PodIP 10.112.1.8, agentPodIP 10.132.15.218
+  wait for forward port to debug agent ready...
+  Forwarding from 127.0.0.1:10027 -> 10027
+  Forwarding from [::1]:10027 -> 10027
+  Handling connection for 10027
+                               pulling image nicolaka/netshoot:latest... 
+  latest: Pulling from nicolaka/netshoot
+  cbdbe7a5bc2a: Pull complete 
+  fa7edde5704a: Pull complete 
+  d142e371ed28: Pull complete 
+  7bc9cb006bce: Pull complete 
+  a4d2c327d444: Pull complete 
+  428e55c983a8: Pull complete 
+  1209022df24d: Pull complete 
+  b74093e72c31: Pull complete 
+  Digest: sha256:04786602e5a9463f40da65aea06fe5a825425c7df53b307daa21f828cfe40bf8
+  Status: Downloaded newer image for nicolaka/netshoot:latest
+  starting debug container...
+  container created, open tty...
+  bash-5.0# strace -c -p1
+  strace: Process 1 attached
+  ```
+  * Команда запустилась без ошибки, проверим capabilities:
+  ```
+  @gke-my-cluster-default-pool-4bd48835-p559 ~ $ sudo docker inspect 01b | grep -i -A 1 -B 1 trace
+            "CapAdd": [
+                "SYS_PTRACE",
+                "SYS_ADMIN"
+  ```
+  - уже всё есть;
+
+2. ### iptables-tailer:
+  * Первый запуск теста прошёл удачно:
+  ```
+  ➜  netperf-operator git:(master) kubectl describe netperf               
+  Name:         example
+  Namespace:    default
+  Labels:       <none>
+  Annotations:  API Version:  app.example.com/v1alpha1
+  Kind:         Netperf
+  Metadata:
+    Creation Timestamp:  2020-10-06T16:03:34Z
+    Generation:          4
+    Resource Version:    7225
+    Self Link:           /apis/app.example.com/v1alpha1/namespaces/default/netperfs/example
+    UID:                 b42f5536-086f-43d2-8181-996eb1cce04b
+  Spec:
+    Client Node:  
+    Server Node:  
+  Status:
+    Client Pod:          netperf-client-996eb1cce04b
+    Server Pod:          netperf-server-996eb1cce04b
+    Speed Bits Per Sec:  8447.41
+    Status:              Done
+  Events:                <none>
+  ```
+  * Установку iptables-tailer сделаем из манифеста daemonset.yaml из репозитория проекта с изменениями из файла Александра.
+
+  * Для отображения в логах имён подов изменим переменную "POD_IDENTIFIER" на "name"
+  ```
+    Warning  PacketDrop  5m57s (x5 over 23m)  kube-iptables-tailer  Packet dropped when receiving traffic from netperf-client-d509e63dd79c (10.112.1.21)
+  ```
+  * А после исправим политику:
+    заменим метки на выдаваемые при создании подов: "netperf-type";  
+    и в качестве приёмника укажем сервер.
+
+## ДЗ 14 Подходы к развёртыванию
+1. ### Установка кластера с помощью kubeadm;
+  * После установки master-ноды:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS     ROLES    AGE   VERSION
+  etcd1   NotReady   master   16m   v1.17.4
+  ```
+  * Далее после установки сетевого плагина:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS     ROLES    AGE   VERSION
+  etcd1   Ready   master   16m   v1.17.4
+  ```
+  * При подключении ноды был указан полученный хэш, но в логе оказалось, что хэш не соответствует,  
+и был указан другой. С его помощью нода подключилась:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE   VERSION
+  etcd1   Ready    master   49m   v1.17.4
+  node1   Ready    <none>   52s   v1.17.4
+  ```
+  Подключили все
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE   VERSION
+  etcd1   Ready    master   73m   v1.17.4
+  node1   Ready    <none>   24m   v1.17.4
+  node2   Ready    <none>   26s   v1.17.4
+  node3   Ready    <none>   68s   v1.17.4
+  ```
+2. ### Обновление кластера;
+  * После обновления бинарников:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE    VERSION
+  etcd1   Ready    master   110m   v1.18.0
+  node1   Ready    <none>   61m    v1.17.4
+  node2   Ready    <none>   37m    v1.17.4
+  node3   Ready    <none>   38m    v1.17.4
+  ```
+  А версия API сервера 1.17.12, т. к. манифест и соответственно образ не обновлялся.
+  * Обновили все ноды:
+  ```
+  appuser@etcd1:~$ kubectl get nodes
+  NAME    STATUS   ROLES    AGE    VERSION
+  etcd1   Ready    master   151m   v1.18.0
+  node1   Ready    <none>   102m   v1.18.0
+  node2   Ready    <none>   78m    v1.18.0
+  node3   Ready    <none>   79m    v1.18.0
+  ```
+3. ### Установка с помощью kubespray;
+  * Для установки получили следующий файл inventory:
+  ```
+  [all]
+  master1 ansible_host=35.205.10.24 etcd_member_name=etcd1
+  node1 ansible_host=104.199.11.18
+  node2 ansible_host=34.77.222.59
+  node3 ansible_host=34.76.85.235
+
+  [kube-master]
+  master1
+
+  [etcd]
+  master1
+
+  [kube-node]
+  node1
+  node2
+  node3
+
+  [k8s-cluster:children]
+  kube-node
+  kube-master
+  ```
+  * Чтоб в сертификат был добавлен внешний IP master-ноды:  
+  добавим его в переменную supplementary_addresses_in_ssl_keys  
+  в файле /inventory/mycluster/group_vars/k8s-cluster/k8s-cluster.yml;  
+  * А также включим опцию kubeconfig_localhost: true для копирования файла конфигурации  
+  в локальный каталог (в полученном файле admin.conf в последствии следует изменить ip-адрес  
+  на внешний);
+  ```
+  (env) ➜  kubespray git:(master) ✗ kubectl get nodes   
+  NAME      STATUS   ROLES    AGE   VERSION
+  master1   Ready    master   15m   v1.18.6
+  node1     Ready    <none>   14m   v1.18.6
+  node2     Ready    <none>   14m   v1.18.6
+  node3     Ready    <none>   14m   v1.18.6
   ```
 
 ## ДЗ 10 Vault+k8s
